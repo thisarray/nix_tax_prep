@@ -1,5 +1,6 @@
 """Python 3 form library module."""
 
+import collections.abc
 from decimal import Decimal, InvalidOperation
 import unittest
 
@@ -12,11 +13,11 @@ WIDTH = 79
 ZERO = Decimal(0)
 """Decimal constant for zero (0)."""
 
-class Form:
+class Form(collections.abc.MutableMapping):
     """A form is a mapping that indexes a value by line number."""
 
     def __init__(self, name):
-        """Create a Form instance named name.
+        """Create an empty Form instance named name.
 
         Args:
             name: String name of the form.
@@ -47,6 +48,16 @@ class Form:
             return line_number
         raise TypeError('Unrecognized type for line_number.')
 
+    @staticmethod
+    def _natural_sort_key(line_number):
+        """Return a tuple from line_number to sort line numbers humanly."""
+        i = len(line_number)
+        while i > 0:
+            if line_number[:i].isdigit():
+                return (int(line_number[:i]), line_number[i:])
+            i -= 1
+        return (MAX_LINE_NUMBER, line_number)
+
     def __getitem__(self, line_number):
         """Return the value on line_number in this form or ZERO."""
         key = Form._line_number_to_key(line_number)
@@ -72,16 +83,10 @@ class Form:
         if key in self.backing:
             del self.backing[key]
 
-    def calculate(self):
-        """Update the form with calculations."""
-        pass
-
-    def print(self):
-        """Print the form name and all its lines."""
-        self.calculate()
-
+    def __iter__(self):
+        """Return an iterator for the lines in this form in ascending order."""
         # Find the set of line numbers without a value set
-        missing_set = set(range(1, self.maximum_line_number + 1))
+        missing_set = set(range(1, len(self) + 1))
         for line_number in self.backing.keys():
             value = Form._natural_sort_key(line_number)[0]
             if value < MAX_LINE_NUMBER:
@@ -90,17 +95,14 @@ class Form:
         # Build the list of all line numbers including those without a value
         keys = list(self.backing.keys()) + [str(i) for i in missing_set]
         keys.sort(key=Form._natural_sort_key)
-        width = max(len(key) for key in keys)
 
-        print(self.name)
-        print('-' * WIDTH)
-        for key in keys:
-            print('{key:>{width}}: {value}'.format(
-                key=key, value=self[key], width=width))
+        return iter(keys)
 
-    @property
-    def maximum_line_number(self):
-        """Return the largest numeric line number with a value set."""
+    def __len__(self):
+        """Return the largest numeric line number with a value set.
+
+        This differs from the traditional notion of length!
+        """
         line_numbers = list(self.backing.keys())
         line_numbers.sort(key=Form._natural_sort_key, reverse=True)
         for line_number in line_numbers:
@@ -109,15 +111,21 @@ class Form:
                 return value
         return 0
 
-    @staticmethod
-    def _natural_sort_key(line_number):
-        """Return a tuple from line_number to sort line numbers humanly."""
-        i = len(line_number)
-        while i >= 0:
-            if line_number[:i].isdigit():
-                return (int(line_number[:i]), line_number[i:])
-            i -= 1
-        return (MAX_LINE_NUMBER, line_number)
+    def calculate(self):
+        """Update the form with calculations."""
+        pass
+
+    def print(self):
+        """Print the form name and all its lines."""
+        self.calculate()
+
+        width = max(len(key) for key in self)
+
+        print(self.name)
+        print('-' * WIDTH)
+        for key in self:
+            print('{key:>{width}}: {value}'.format(
+                key=key, value=self[key], width=width))
 
 
 class _UnitTest(unittest.TestCase):
@@ -133,39 +141,6 @@ class _UnitTest(unittest.TestCase):
         self.assertEqual(Form._line_number_to_key('42a'), '42a')
         self.assertEqual(Form._line_number_to_key('foobar'), 'foobar')
 
-    def test_form(self):
-        """Test the Form class."""
-        for value in [None, 42.0, [], {}]:
-            self.assertRaises(TypeError, Form, value)
-        self.assertRaises(ValueError, Form, '')
-
-        form = Form('foobar')
-        self.assertEqual(form.name, 'foobar')
-        self.assertEqual(form.backing, {})
-        self.assertEqual(str(form), 'foobar')
-        self.assertEqual(form[42], ZERO)
-        form[42] = 'baz'
-        self.assertEqual(form.backing, {'42': 'baz'})
-        self.assertEqual(form[42], 'baz')
-        self.assertEqual(form.maximum_line_number, 42)
-        del form[42]
-        self.assertEqual(form.backing, {})
-        self.assertEqual(form[42], ZERO)
-        self.assertEqual(form.maximum_line_number, 0)
-        form[42] = 0
-        self.assertEqual(form.backing, {'42': ZERO})
-        self.assertEqual(form[42], ZERO)
-        self.assertEqual(form.maximum_line_number, 42)
-        for value in [13, 13.0, Decimal('13')]:
-            form[42] = value
-            self.assertEqual(form.backing, {'42': Decimal(13)})
-            self.assertEqual(form[42], Decimal(13))
-            self.assertEqual(form.maximum_line_number, 42)
-        form[42] = True
-        self.assertEqual(form.backing, {'42': True})
-        self.assertEqual(form[42], True)
-        self.assertEqual(form.maximum_line_number, 42)
-
     def test_natural_sort_key(self):
         """Test the key function for natural sort."""
         self.assertEqual(Form._natural_sort_key('0'), (0, ''))
@@ -180,6 +155,53 @@ class _UnitTest(unittest.TestCase):
             sorted(['foo', 'bar', '42a', '4', '42b'],
                    key=Form._natural_sort_key),
             ['4', '42a', '42b', 'bar', 'foo'])
+
+    def test_form(self):
+        """Test the Form class."""
+        for value in [None, 42.0, [], {}]:
+            self.assertRaises(TypeError, Form, value)
+        self.assertRaises(ValueError, Form, '')
+
+        form = Form('foobar')
+        self.assertEqual(form.name, 'foobar')
+        self.assertEqual(form.backing, {})
+        self.assertEqual(str(form), 'foobar')
+        self.assertEqual(form[42], ZERO)
+        self.assertEqual(len(form), 0)
+
+        form[42] = 'baz'
+        self.assertEqual(form.backing, {'42': 'baz'})
+        self.assertEqual(form[42], 'baz')
+        self.assertEqual(len(form), 42)
+        del form[42]
+        self.assertEqual(form.backing, {})
+        self.assertEqual(form[42], ZERO)
+        self.assertEqual(len(form), 0)
+        form[42] = 0
+        self.assertEqual(form.backing, {'42': ZERO})
+        self.assertEqual(form[42], ZERO)
+        self.assertEqual(len(form), 42)
+        for value in [13, 13.0, Decimal('13')]:
+            form[42] = value
+            self.assertEqual(form.backing, {'42': Decimal(13)})
+            self.assertEqual(form[42], Decimal(13))
+            self.assertEqual(len(form), 42)
+        form[13] = True
+        self.assertEqual(form.backing, {'13': True, '42': Decimal(13)})
+        self.assertEqual(form[13], True)
+        self.assertEqual(form[42], Decimal(13))
+        self.assertEqual(len(form), 42)
+        self.assertEqual(list(form), [str(i) for i in range(1, 43)])
+
+        form['foobar'] = False
+        self.assertEqual(form.backing, {'13': True, '42': Decimal(13),
+                                        'foobar': False})
+        self.assertEqual(form[13], True)
+        self.assertEqual(form[42], Decimal(13))
+        self.assertEqual(form['foobar'], False)
+        self.assertEqual(len(form), 42)
+        self.assertEqual(list(form),
+                         [str(i) for i in range(1, 43)] + ['foobar'])
 
 if __name__ == '__main__':
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(_UnitTest)
