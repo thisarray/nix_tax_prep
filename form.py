@@ -7,6 +7,9 @@ import unittest
 MAX_LINE_NUMBER = 1000
 """Integer arbitrary largest line number for natural sort."""
 
+TWO_PLACES = Decimal(10) ** -2
+"""Decimal constant for rounding to 2 decimal places."""
+
 WIDTH = 79
 """Integer width of the border between the form name and its lines."""
 

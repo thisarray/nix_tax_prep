@@ -6,6 +6,9 @@ class Federal(form.Form):
     def __init__(self):
         super(Federal, self).__init__(__doc__)
 
+        # Standard deduction
+        self[12] = 12400
+
     def calculate(self):
         """Update the form lines with 1040 calculations."""
         # Total income. Add lines 1, 2b, 3b, 4b, 5b, 6b, 7, and 8.
@@ -14,9 +17,6 @@ class Federal(form.Form):
         self['10c'] = self['10a'] + self['10b']
         # Adjusted gross income. Subtract line 10c from line 9.
         self[11] = self[9] - self['10c']
-
-        # Standard deduction
-        self[12] = 12400
 
         # Add lines 12 and 13.
         self[14] = self[12] + self[13]
