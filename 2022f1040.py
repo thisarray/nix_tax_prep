@@ -11,7 +11,7 @@ class Federal(form.Form):
 
     def calculate(self):
         """Update the form lines with 1040 calculations."""
-        # Add lines 1a through 1h
+        # Add lines 1a through 1h.
         self['1z'] = self['1a'] + self['1b'] + self['1c'] + self['1d'] + self['1e'] + self['1f'] + self['1g'] + self['1h']
         # Total income. Add lines 1z, 2b, 3b, 4b, 5b, 6b, 7, and 8.
         self[9] = self['1z'] + self['2b'] + self['3b'] + self['4b'] + self['5b'] + self['6b'] + self[7] + self[8]
