@@ -61,6 +61,44 @@ class Federal(form.Form):
         # Amount you owe. Subtract line 33 from line 24.
         self[37] = self[24] - self[33]
 
+class Estimated(form.Form):
+    def __init__(self, federal):
+        super().__init__('2026 Estimated Tax Worksheet')
+
+        self.federal = federal
+        """Form 1040 upon which this worksheet is based."""
+
+        # Standard deduction
+        self['2a'] = 16100
+        self[7] = self.federal[21]
+        self['12b'] = self.federal[24]
+
+    def calculate(self):
+        """Update the form lines with worksheet calculations."""
+        self['2d'] = self['2a'] + self['2b'] + self['2c']
+        self[3] = self[1] - self['2d']
+
+        self[6] = self[4] + self[5]
+
+        self[8] = self[6] - self[7]
+        if self[8] <= 0:
+            self[8] = 0
+
+        self['11a'] = self[8] + self[9] + self[10]
+
+        # Total 2026 estimated tax
+        self['11c'] = self['11a'] - self['11b']
+        if self['11c'] <= 0:
+            self['11c'] = 0
+
+        self['12a'] = self['11c'] * Decimal('0.90')
+        self['12c'] = min(self['12a'], self['12b'])
+
+        self['14a'] = self['12c'] - self[13]
+        self['14b'] = self['11c'] - self[13]
+
+        self[15] = (self['14a'] / 4) - self.federal[36]
+
 if __name__ == '__main__':
     federal = Federal()
     federal.print()
